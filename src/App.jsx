@@ -56,8 +56,7 @@ export default function App() {
           style={{ width: 110, height: 110, objectFit: "contain", margin: "0 auto 4px", display: "block" }}
         />
 
-        <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800 }}>CircleUno</h1>
-        <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 16px" }}>Clinical Monitoring Platform</p>
+        <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 16px" }}>Clinical Monitoring Platform</p>
 
         <div className="login-description card">
           <p className="login-text">
