@@ -3,16 +3,20 @@ import { doc, writeBatch, collection, query, where, getDocs } from "firebase/fir
 import { db } from "../firebase";
 
 export default function Patients({ patients, entries, onSelect }) {
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]     = useState("");
   const [deleting, setDeleting] = useState(null);
 
   const deletePatient = async (p) => {
     if (!confirm(`למחוק את ${p.name}? הפעולה בלתי הפיכה.`)) return;
     setDeleting(p.id);
     try {
-      const snap = await getDocs(query(collection(db, "entries"), where("patientCode", "==", p.code)));
+      const [entriesSnap, copingSnap] = await Promise.all([
+        getDocs(query(collection(db, "entries"), where("patientCode", "==", p.code))),
+        getDocs(query(collection(db, "copingSessions"), where("patientCode", "==", p.code))),
+      ]);
       const batch = writeBatch(db);
-      snap.docs.forEach(d => batch.delete(d.ref));
+      entriesSnap.docs.forEach(d => batch.delete(d.ref));
+      copingSnap.docs.forEach(d => batch.delete(d.ref));
       batch.delete(doc(db, "patients", p.id));
       await batch.commit();
     } catch { alert("מחיקה נכשלה"); }
@@ -22,9 +26,13 @@ export default function Patients({ patients, entries, onSelect }) {
   const resetPatient = async (p) => {
     if (!confirm(`לאפס את כל הנתונים של ${p.name}?`)) return;
     try {
-      const snap = await getDocs(query(collection(db, "entries"), where("patientCode", "==", p.code)));
+      const [entriesSnap, copingSnap] = await Promise.all([
+        getDocs(query(collection(db, "entries"), where("patientCode", "==", p.code))),
+        getDocs(query(collection(db, "copingSessions"), where("patientCode", "==", p.code))),
+      ]);
       const batch = writeBatch(db);
-      snap.docs.forEach(d => batch.delete(d.ref));
+      entriesSnap.docs.forEach(d => batch.delete(d.ref));
+      copingSnap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
     } catch { alert("איפוס נכשל"); }
   };
