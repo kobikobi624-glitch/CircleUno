@@ -203,7 +203,7 @@ export function generateWeeklyReport(patient) {
     </div>
     <div class="kpi" style="border-top:3px solid #22c55e">
       <div class="val" style="color:#22c55e">${100-avoidPct}%</div>
-      <div class="lbl">אחוז ציות</div>
+      <div class="lbl">אחוז התמודדות</div>
     </div>
   </div>
 
