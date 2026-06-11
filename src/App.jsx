@@ -12,6 +12,12 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  // change password
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changeSuccess, setChangeSuccess] = useState(false);
+
   useEffect(() => {
     const saved = localStorage.getItem("circleuno_user");
     if (saved) setUserType(saved);
@@ -39,6 +45,23 @@ export default function App() {
     setAuthStep("select");
     setPassword("");
     setError("");
+  };
+
+  const changePassword = () => {
+    if (oldPassword !== getPassword()) { setError("הסיסמה הנוכחית שגויה"); return; }
+    if (newPassword.length < 4) { setError("הסיסמה החדשה חייבת להכיל לפחות 4 תווים"); return; }
+    if (newPassword !== confirmPassword) { setError("הסיסמאות החדשות אינן תואמות"); return; }
+    localStorage.setItem("circleuno_therapist_password", newPassword);
+    setChangeSuccess(true);
+    setOldPassword(""); setNewPassword(""); setConfirmPassword(""); setError("");
+    setTimeout(() => { setChangeSuccess(false); setAuthStep("therapist"); }, 2000);
+  };
+
+  const goBack = (step) => {
+    setAuthStep(step);
+    setError("");
+    setOldPassword(""); setNewPassword(""); setConfirmPassword("");
+    setChangeSuccess(false);
   };
 
   /* ===== APP ===== */
@@ -69,6 +92,7 @@ export default function App() {
           </p>
         </div>
 
+        {/* SELECT */}
         {authStep === "select" && (
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
             <button
@@ -88,6 +112,7 @@ export default function App() {
           </div>
         )}
 
+        {/* THERAPIST LOGIN */}
         {authStep === "therapist" && (
           <div className="card" style={{ marginTop: 16, textAlign: "right" }}>
             <h3 style={{ marginTop: 0, fontSize: 16 }}>כניסת מטפל</h3>
@@ -101,10 +126,62 @@ export default function App() {
             />
             {error && <div style={{ color: "#ef4444", fontSize: 13, marginTop: 6 }}>{error}</div>}
             <button className="btn-primary" style={{ marginTop: 10 }} onClick={loginTherapist}>כניסה</button>
-            <button style={{ marginTop: 8, background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, width: "100%" }} onClick={() => setAuthStep("select")}>חזרה</button>
+            <button
+              style={{ marginTop: 8, background: "transparent", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 13, width: "100%", textDecoration: "underline" }}
+              onClick={() => goBack("changePassword")}
+            >
+              🔑 שינוי סיסמה
+            </button>
+            <button style={{ marginTop: 4, background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, width: "100%" }} onClick={() => goBack("select")}>חזרה</button>
           </div>
         )}
 
+        {/* CHANGE PASSWORD */}
+        {authStep === "changePassword" && (
+          <div className="card" style={{ marginTop: 16, textAlign: "right" }}>
+            <h3 style={{ marginTop: 0, fontSize: 16 }}>🔑 שינוי סיסמה</h3>
+
+            {changeSuccess ? (
+              <div style={{ padding: "14px", background: "#dcfce7", borderRadius: 10, color: "#166534", fontWeight: 600, textAlign: "center" }}>
+                ✅ הסיסמה שונתה בהצלחה!
+              </div>
+            ) : (
+              <>
+                <input
+                  type="password"
+                  placeholder="סיסמה נוכחית"
+                  value={oldPassword}
+                  onChange={e => { setOldPassword(e.target.value); setError(""); }}
+                  style={{ marginTop: 8 }}
+                />
+                <input
+                  type="password"
+                  placeholder="סיסמה חדשה"
+                  value={newPassword}
+                  onChange={e => { setNewPassword(e.target.value); setError(""); }}
+                  style={{ marginTop: 8 }}
+                />
+                <input
+                  type="password"
+                  placeholder="אימות סיסמה חדשה"
+                  value={confirmPassword}
+                  onChange={e => { setConfirmPassword(e.target.value); setError(""); }}
+                  onKeyDown={e => e.key === "Enter" && changePassword()}
+                  style={{ marginTop: 8 }}
+                />
+                {error && <div style={{ color: "#ef4444", fontSize: 13, marginTop: 6 }}>{error}</div>}
+                <button className="btn-primary" style={{ marginTop: 10 }} onClick={changePassword}>
+                  שמור סיסמה חדשה
+                </button>
+                <button style={{ marginTop: 8, background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, width: "100%" }} onClick={() => goBack("therapist")}>
+                  חזרה
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* PATIENT LOGIN */}
         {authStep === "patient" && (
           <div className="card" style={{ marginTop: 16, textAlign: "right" }}>
             <h3 style={{ marginTop: 0, fontSize: 16 }}>כניסת מטופל</h3>
@@ -117,9 +194,10 @@ export default function App() {
             />
             {error && <div style={{ color: "#ef4444", fontSize: 13, marginTop: 6 }}>{error}</div>}
             <button className="btn-primary" style={{ marginTop: 10 }} onClick={loginPatient}>כניסה</button>
-            <button style={{ marginTop: 8, background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, width: "100%" }} onClick={() => setAuthStep("select")}>חזרה</button>
+            <button style={{ marginTop: 8, background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, width: "100%" }} onClick={() => goBack("select")}>חזרה</button>
           </div>
         )}
+
       </div>
     </div>
   );
