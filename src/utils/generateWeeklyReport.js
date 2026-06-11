@@ -1,15 +1,12 @@
-import jsPDF from "jspdf";
 import { getClinicalInsights } from "./clinicalInsights";
 
 export function generateWeeklyReport(patient) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  const entries = patient.entries || [];
-  const weekAgo = Date.now() - 7 * 86400000;
-  const weekly  = entries.filter(e => new Date(e.timestamp).getTime() > weekAgo);
+  const entries  = patient.entries || [];
+  const weekAgo  = Date.now() - 7 * 86400000;
+  const weekly   = entries.filter(e => new Date(e.timestamp).getTime() > weekAgo);
   const insights = getClinicalInsights(patient);
 
-  const avg  = weekly.length > 0 ? weekly.reduce((s,e)=>s+e.anxiety,0)/weekly.length : 0;
+  const avg        = weekly.length > 0 ? weekly.reduce((s,e)=>s+e.anxiety,0)/weekly.length : 0;
   const avoidCount = weekly.filter(e=>e.response==="no").length;
   const avoidPct   = weekly.length > 0 ? Math.round(avoidCount/weekly.length*100) : 0;
 
@@ -17,161 +14,244 @@ export function generateWeeklyReport(patient) {
   weekly.forEach(e => { if(e.trigger) triggers[e.trigger] = (triggers[e.trigger]||0)+1; });
   const topTriggers = Object.entries(triggers).sort((a,b)=>b[1]-a[1]).slice(0,3);
 
-  const pageW = 210;
-  const margin = 18;
-  let y = 0;
+  const riskColor = { high:"#ef4444", medium:"#f59e0b", low:"#22c55e" }[insights.risk] || "#6366f1";
 
-  // ── Header bar
-  doc.setFillColor(99, 102, 241);
-  doc.rect(0, 0, pageW, 30, "F");
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(18);
-  doc.setFont("helvetica","bold");
-  doc.text("CircleUno", margin, 12);
-  doc.setFontSize(10);
-  doc.setFont("helvetica","normal");
-  doc.text("Weekly Clinical Report", margin, 20);
-  doc.text(`Generated: ${new Date().toLocaleDateString("he-IL")}`, pageW - margin, 20, { align: "right" });
-  y = 38;
+  const eventsRows = weekly.slice(0,20).map(e => {
+    const resp = e.response==="no"?"נמנע":e.response==="partial"?"חלקי":"התמודד";
+    const color = e.anxiety>=70?"#ef4444":e.anxiety>=40?"#f59e0b":"#22c55e";
+    return `
+      <tr>
+        <td>${new Date(e.timestamp).toLocaleDateString("he-IL")}</td>
+        <td>${e.trigger || "—"}</td>
+        <td style="color:${color};font-weight:700">${e.anxiety}</td>
+        <td>${resp}</td>
+        <td style="font-size:12px;color:#64748b">${e.notes || "—"}</td>
+      </tr>`;
+  }).join("");
 
-  // ── Patient info
-  doc.setTextColor(15,23,42);
-  doc.setFontSize(14);
-  doc.setFont("helvetica","bold");
-  doc.text(`Patient: ${patient.name || patient.code}  (${patient.code})`, margin, y);
-  y += 8;
+  const triggersHtml = topTriggers.map(([t,c]) =>
+    `<span class="tag">${t} <b>(${c})</b></span>`
+  ).join(" ");
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica","normal");
-  doc.setTextColor(100,116,139);
-  doc.text(`Report period: last 7 days  ·  Events this week: ${weekly.length}`, margin, y);
-  y += 10;
-
-  // ── Divider
-  doc.setDrawColor(226,232,240);
-  doc.line(margin, y, pageW - margin, y);
-  y += 8;
-
-  // ── KPI row (4 boxes)
-  const kpis = [
-    { label: "Avg Anxiety", value: avg.toFixed(1) },
-    { label: "Events", value: weekly.length },
-    { label: "Avoidance", value: `${avoidPct}%` },
-    { label: "Risk", value: insights.riskLabel },
-  ];
-  const boxW = (pageW - 2*margin - 9) / 4;
-  kpis.forEach((k, i) => {
-    const x = margin + i * (boxW + 3);
-    doc.setFillColor(241,245,249);
-    doc.roundedRect(x, y, boxW, 18, 3, 3, "F");
-    doc.setFontSize(16);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(99,102,241);
-    doc.text(String(k.value), x + boxW/2, y + 10, { align: "center" });
-    doc.setFontSize(8);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(100,116,139);
-    doc.text(k.label, x + boxW/2, y + 15, { align: "center" });
-  });
-  y += 26;
-
-  // ── Clinical Insights
-  doc.setFontSize(12);
-  doc.setFont("helvetica","bold");
-  doc.setTextColor(15,23,42);
-  doc.text("Clinical Insights", margin, y);
-  y += 7;
-
-  const insightLines = [
-    `Trend: ${insights.trendLabel}  (${insights.trendIcon})`,
-    `Dominant Trigger: ${insights.dominantTrigger}`,
-    `Compliance Rate: ${insights.complianceRate}%`,
-    `Note: ${insights.note}`,
-  ];
-  doc.setFontSize(10);
-  doc.setFont("helvetica","normal");
-  doc.setTextColor(71,85,105);
-  insightLines.forEach(line => {
-    const wrapped = doc.splitTextToSize(line, pageW - 2*margin);
-    doc.text(wrapped, margin, y);
-    y += wrapped.length * 6;
-  });
-  y += 4;
-
-  // ── Top Triggers
-  if (topTriggers.length > 0) {
-    doc.setFillColor(238,242,255);
-    doc.roundedRect(margin, y, pageW-2*margin, 8 + topTriggers.length*7, 4, 4, "F");
-    doc.setFontSize(11);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(99,102,241);
-    doc.text("Top Triggers This Week", margin+4, y+6);
-    y += 12;
-    doc.setFontSize(10);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(15,23,42);
-    topTriggers.forEach(([t, c]) => {
-      doc.text(`• ${t}  (${c}x)`, margin+6, y);
-      y += 7;
-    });
-    y += 4;
+  const html = `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<title>דוח שבועי – ${patient.name || patient.code}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Heebo', Arial, sans-serif;
+    color: #0f172a;
+    background: white;
+    direction: rtl;
+    padding: 32px;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
-  // ── Divider
-  doc.setDrawColor(226,232,240);
-  doc.line(margin, y, pageW-margin, y);
-  y += 8;
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    padding: 24px 28px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header h1 { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+  .header .sub { opacity: 0.85; font-size: 13px; }
+  .header .date { font-size: 13px; opacity: 0.8; text-align: left; }
 
-  // ── Events table header
-  if (weekly.length > 0) {
-    doc.setFontSize(12);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(15,23,42);
-    doc.text("Events (last 7 days)", margin, y);
-    y += 6;
+  /* PATIENT INFO */
+  .patient-bar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+  .patient-bar .name { font-size: 18px; font-weight: 700; }
+  .patient-bar .code { color: #64748b; font-size: 13px; }
 
-    doc.setFillColor(241,245,249);
-    doc.rect(margin, y, pageW-2*margin, 8, "F");
-    doc.setFontSize(9);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(100,116,139);
-    doc.text("Date", margin+2, y+5.5);
-    doc.text("Trigger", margin+32, y+5.5);
-    doc.text("Anxiety", margin+90, y+5.5);
-    doc.text("Response", margin+112, y+5.5);
-    y += 10;
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+  }
+  .kpi .val { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+  .kpi .lbl { font-size: 12px; color: #64748b; font-weight: 500; }
 
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(9);
-    weekly.slice(0,15).forEach((e,i) => {
-      if (i % 2 === 1) {
-        doc.setFillColor(248,250,252);
-        doc.rect(margin, y-3, pageW-2*margin, 7, "F");
-      }
-      const resp = e.response==="no"?"נמנע":e.response==="partial"?"חלקי":"התמודד";
-      doc.setTextColor(15,23,42);
-      doc.text(new Date(e.timestamp).toLocaleDateString("he-IL"), margin+2, y+2);
-      doc.text(String(e.trigger||"—").substring(0,30), margin+32, y+2);
-      doc.setTextColor(e.anxiety>=70?"#ef4444":e.anxiety>=40?"#f59e0b":"#22c55e");
-      doc.setTextColor(e.anxiety>=70?239:e.anxiety>=40?245:34,
-                       e.anxiety>=70?68:e.anxiety>=40?158:197,
-                       e.anxiety>=70?68:e.anxiety>=40?11:94);
-      doc.text(String(e.anxiety), margin+95, y+2);
-      doc.setTextColor(71,85,105);
-      doc.text(resp, margin+112, y+2);
-      y += 7;
-      if (y > 270) { doc.addPage(); y = 20; }
-    });
+  /* SECTION */
+  .section { margin-bottom: 20px; }
+  .section h2 {
+    font-size: 15px; font-weight: 700;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e2e8f0;
   }
 
-  // ── Footer
-  const totalPages = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(148,163,184);
-    doc.text(`CircleUno Clinical Report · ${patient.code} · Page ${i}/${totalPages}`, pageW/2, 290, { align: "center" });
+  /* INSIGHT BOX */
+  .insight-box {
+    background: #eef2ff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #4f46e5;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .insight-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 10px; }
+  .insight-row span { font-size: 13px; }
+  .insight-row b { color: #0f172a; }
+
+  /* TAGS */
+  .tag {
+    display: inline-block;
+    background: #eef2ff;
+    color: #4f46e5;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    margin: 2px;
   }
 
-  doc.save(`circleuno_report_${patient.code}_${new Date().toISOString().slice(0,10)}.pdf`);
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: #f1f5f9; }
+  th { padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+
+  /* RISK BADGE */
+  .risk-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: ${riskColor}20;
+    color: ${riskColor};
+  }
+
+  /* FOOTER */
+  .footer {
+    margin-top: 32px;
+    padding-top: 14px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 11px;
+    color: #94a3b8;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media print {
+    body { padding: 16px; }
+    @page { margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>CircleUno</h1>
+      <div class="sub">דוח קליני שבועי</div>
+    </div>
+    <div class="date">
+      תאריך הפקה:<br/>
+      <b>${new Date().toLocaleDateString("he-IL", { day:"numeric", month:"long", year:"numeric" })}</b>
+    </div>
+  </div>
+
+  <div class="patient-bar">
+    <div>
+      <div class="name">${patient.name || patient.code}</div>
+      <div class="code">קוד: ${patient.code}</div>
+    </div>
+    <div>תקופה: 7 ימים אחרונים</div>
+    <div>אירועים בתקופה: <b>${weekly.length}</b></div>
+    <div>רמת סיכון: <span class="risk-badge">${insights.riskLabel}</span></div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi" style="border-top:3px solid #6366f1">
+      <div class="val" style="color:#6366f1">${weekly.length}</div>
+      <div class="lbl">אירועים השבוע</div>
+    </div>
+    <div class="kpi" style="border-top:3px solid ${riskColor}">
+      <div class="val" style="color:${riskColor}">${avg.toFixed(1)}</div>
+      <div class="lbl">חרדה ממוצעת</div>
+    </div>
+    <div class="kpi" style="border-top:3px solid #f59e0b">
+      <div class="val" style="color:#f59e0b">${avoidPct}%</div>
+      <div class="lbl">אחוז הימנעות</div>
+    </div>
+    <div class="kpi" style="border-top:3px solid #22c55e">
+      <div class="val" style="color:#22c55e">${100-avoidPct}%</div>
+      <div class="lbl">אחוז ציות</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🧠 אינסייטים קליניים</h2>
+    <div class="insight-row">
+      <span>מגמה: <b>${insights.trendIcon} ${insights.trendLabel}</b></span>
+      <span>טריגר דומיננטי: <b>${insights.dominantTrigger}</b></span>
+      <span>חרדה ממוצעת כוללת: <b>${insights.overallAvg}</b></span>
+    </div>
+    <div class="insight-box">🧾 ${insights.note}</div>
+  </div>
+
+  ${topTriggers.length > 0 ? `
+  <div class="section">
+    <h2>🎯 טריגרים השבוע</h2>
+    <div>${triggersHtml}</div>
+  </div>` : ""}
+
+  ${weekly.length > 0 ? `
+  <div class="section">
+    <h2>📋 רשימת אירועים</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>תאריך</th>
+          <th>טריגר</th>
+          <th>חרדה</th>
+          <th>תגובה</th>
+          <th>הערות</th>
+        </tr>
+      </thead>
+      <tbody>${eventsRows}</tbody>
+    </table>
+  </div>` : `<p style="color:#94a3b8;text-align:center;padding:24px">לא נרשמו אירועים בשבוע האחרון</p>`}
+
+  <div class="footer">
+    <span>CircleUno · דוח קליני שבועי</span>
+    <span>${patient.code} · ${new Date().toLocaleDateString("he-IL")}</span>
+  </div>
+
+  <script>
+    window.onload = function() { window.print(); }
+  </script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  win.document.write(html);
+  win.document.close();
 }
