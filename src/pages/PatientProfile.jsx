@@ -53,7 +53,7 @@ export default function PatientProfile({ patient, onBack }) {
           { label: "סה״כ אירועים", value: patient.entries.length, color: "#6366f1" },
           { label: "חרדה ממוצעת", value: insights.overallAvg, color: insights.riskColor },
           { label: "הימנעות", value: `${insights.avoidanceRate}%`, color: "#f59e0b" },
-          { label: "ציות",   value: `${insights.complianceRate}%`, color: "#22c55e" },
+          { label: "התמודדות", value: `${insights.complianceRate}%`, color: "#22c55e" },
           { label: "מגמה",   value: insights.trendIcon + " " + insights.trendLabel, color: "#6366f1" },
         ].map(k => (
           <div key={k.label} style={{ background: "white", borderRadius: 12, padding: "12px 14px", border: "1px solid #e2e8f0", borderTop: `3px solid ${k.color}` }}>
