@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Therapists can only read/write their own profile
+    match /therapists/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Patients: therapist can CRUD their own patients
+    match /patients/{patientId} {
+      allow read, write: if request.auth != null && resource.data.therapistId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.therapistId == request.auth.uid;
+      // Patients can read their own record by code (unauthenticated)
+      allow read: if true;
+    }
+
+    // Entries: therapist can read/write entries for their patients
+    match /entries/{entryId} {
+      allow read, write: if request.auth != null && resource.data.therapistId == request.auth.uid;
+      allow create: if true; // patients write entries without auth
+      allow read: if true;   // patients can read to verify code
+    }
+  }
+}
