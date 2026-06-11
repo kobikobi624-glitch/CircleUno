@@ -4,6 +4,7 @@ import { db } from "../firebase";
 
 export default function PatientCheckIn({ patientCode, onLogout }) {
   const [patientName, setPatientName] = useState("");
+  const [therapistId, setTherapistId] = useState("");
   const [trigger, setTrigger]   = useState("");
   const [anxiety, setAnxiety]   = useState(40);
   const [response, setResponse] = useState("no");
@@ -13,7 +14,13 @@ export default function PatientCheckIn({ patientCode, onLogout }) {
 
   useEffect(() => {
     getDocs(query(collection(db, "patients"), where("code", "==", patientCode)))
-      .then(snap => { if (!snap.empty) setPatientName(snap.docs[0].data().name); });
+      .then(snap => {
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          setPatientName(data.name);
+          setTherapistId(data.therapistId);
+        }
+      });
   }, [patientCode]);
 
   const saveEntry = async () => {
@@ -22,6 +29,7 @@ export default function PatientCheckIn({ patientCode, onLogout }) {
     try {
       await addDoc(collection(db, "entries"), {
         patientCode,
+        therapistId,
         timestamp: new Date().toISOString(),
         trigger: trigger.trim(),
         anxiety,
