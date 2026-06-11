@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
+import AISupport from "./AISupport";
 
 export default function PatientCheckIn({ patientCode, onLogout }) {
   const [patientName, setPatientName] = useState("");
@@ -11,6 +12,7 @@ export default function PatientCheckIn({ patientCode, onLogout }) {
   const [notes, setNotes]       = useState("");
   const [saving, setSaving]     = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
+  const [showAI, setShowAI]     = useState(false);
 
   useEffect(() => {
     getDocs(query(collection(db, "patients"), where("code", "==", patientCode)))
@@ -43,6 +45,10 @@ export default function PatientCheckIn({ patientCode, onLogout }) {
     setSaving(false);
   };
 
+  if (showAI) {
+    return <AISupport patientCode={patientCode} onBack={() => setShowAI(false)} />;
+  }
+
   const anxietyColor = anxiety >= 70 ? "#ef4444" : anxiety >= 40 ? "#f59e0b" : "#22c55e";
 
   return (
@@ -53,6 +59,24 @@ export default function PatientCheckIn({ patientCode, onLogout }) {
       </div>
 
       <div style={{ padding: 16, maxWidth: 480, margin: "0 auto" }}>
+
+        {/* AI Support Banner */}
+        <div
+          onClick={() => setShowAI(true)}
+          style={{
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            borderRadius: 16, padding: "14px 16px", marginBottom: 16,
+            cursor: "pointer", color: "white", display: "flex", alignItems: "center", gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 28 }}>🤖</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>צריך עזרה עכשיו?</div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>דבר עם הסוכן שלנו — הוא כאן בשבילך</div>
+          </div>
+          <span style={{ marginRight: "auto", fontSize: 18 }}>←</span>
+        </div>
+
         <h2 style={{ fontSize: 20, marginBottom: 4 }}>דיווח אירוע</h2>
         <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>רשום מה קורה לך עכשיו</p>
 
