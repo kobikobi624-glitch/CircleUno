@@ -7,12 +7,16 @@ import { generateWeeklyReport } from "../utils/generateWeeklyReport";
 
 export default function PatientProfile({ patient, entries, onBack }) {
   if (!patient) return null;
+
   const [copingEnabled, setCopingEnabled] = useState(patient.copingToolEnabled !== false);
   const [copingSessions, setCopingSessions] = useState([]);
 
   useEffect(() => {
     getDocs(query(collection(db, "copingSessions"), where("patientCode", "==", patient.code)))
-      .then(snap => setCopingSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp))));
+      .then(snap => setCopingSessions(
+        snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))
+      ));
   }, [patient.code]);
 
   const toggleCoping = async () => {
@@ -20,7 +24,6 @@ export default function PatientProfile({ patient, entries, onBack }) {
     setCopingEnabled(newVal);
     await updateDoc(doc(db, "patients", patient.id), { copingToolEnabled: newVal });
   };
-
 
   const sorted = [...entries].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
   const patientWithEntries = { ...patient, entries: sorted };
@@ -40,6 +43,8 @@ export default function PatientProfile({ patient, entries, onBack }) {
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto", direction: "rtl" }}>
+
+      {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <button onClick={onBack} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #e2e8f0", background: "white", cursor: "pointer", fontSize: 13 }}>⬅ חזרה</button>
         <div>
@@ -51,6 +56,7 @@ export default function PatientProfile({ patient, entries, onBack }) {
         </span>
       </div>
 
+      {/* KPI ROW */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 10, marginBottom: 16 }}>
         {[
           { label: "סה״כ אירועים",  value: entries.length,               color: "#6366f1" },
@@ -66,6 +72,7 @@ export default function PatientProfile({ patient, entries, onBack }) {
         ))}
       </div>
 
+      {/* HIGH RISK ALERT */}
       {highRiskEvents.length > 0 && (
         <div style={{ background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 12, padding: "10px 14px", marginBottom: 14, color: "#991b1b", fontWeight: 600, fontSize: 14 }}>
           🚨 נרשמו {highRiskEvents.length} אירועי חרדה גבוהה (≥70)
@@ -73,6 +80,7 @@ export default function PatientProfile({ patient, entries, onBack }) {
         </div>
       )}
 
+      {/* CHART */}
       <div className="card" style={{ marginBottom: 14 }}>
         <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>📈 מגמת חרדה לאורך זמן</h3>
         {chartData.length < 2 ? (
@@ -94,6 +102,7 @@ export default function PatientProfile({ patient, entries, onBack }) {
         )}
       </div>
 
+      {/* INSIGHTS */}
       <div className="card" style={{ marginBottom: 14 }}>
         <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🧠 אינסייטים קליניים</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 14 }}>
@@ -111,6 +120,53 @@ export default function PatientProfile({ patient, entries, onBack }) {
         </div>
       </div>
 
+      {/* COPING TOOL TOGGLE */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h3 style={{ margin: "0 0 4px", fontSize: 15 }}>🧘 כלי תרגול</h3>
+            <div style={{ fontSize: 12, color: "#64748b" }}>הפעל/כבה את כלי התרגול עבור מטופל זה</div>
+          </div>
+          <div onClick={toggleCoping} style={{
+            width: 48, height: 26, borderRadius: 999, cursor: "pointer",
+            background: copingEnabled ? "#6366f1" : "#e2e8f0", position: "relative", transition: "background 0.2s",
+          }}>
+            <div style={{
+              position: "absolute", top: 3,
+              right: copingEnabled ? 3 : 23,
+              width: 20, height: 20, borderRadius: "50%", background: "white",
+              transition: "right 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            }} />
+          </div>
+        </div>
+      </div>
+
+      {/* COPING SESSIONS */}
+      {copingSessions.length > 0 && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🧘 סיכומי תרגולים ({copingSessions.length})</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {copingSessions.slice(0, 10).map(s => (
+              <div key={s.id} style={{ padding: "10px 12px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13 }}>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{new Date(s.timestamp).toLocaleString("he-IL")}</div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <span><b>תחושה:</b> {s.feeling || "—"}</span>
+                  <span><b>דחף:</b> {s.urge || "—"}</span>
+                  <span>
+                    <b>חרדה אחרי:</b>{" "}
+                    <span style={{ fontWeight: 700, color: s.anxietyAfter >= 70 ? "#ef4444" : s.anxietyAfter >= 40 ? "#f59e0b" : "#22c55e" }}>
+                      {s.anxietyAfter}
+                    </span>
+                  </span>
+                </div>
+                {s.reflection && <div style={{ marginTop: 6, color: "#475569" }}>💬 {s.reflection}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PDF */}
       <div className="card" style={{ marginBottom: 14 }}>
         <h3 style={{ margin: "0 0 10px", fontSize: 15 }}>📄 דוח שבועי</h3>
         <button onClick={() => generateWeeklyReport(patientWithEntries)} style={{
@@ -121,6 +177,7 @@ export default function PatientProfile({ patient, entries, onBack }) {
         </button>
       </div>
 
+      {/* TIMELINE */}
       <div className="card">
         <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>📅 היסטוריית אירועים</h3>
         {sorted.length === 0 && <p style={{ color: "#94a3b8", fontSize: 14 }}>אין עדיין אירועים</p>}
