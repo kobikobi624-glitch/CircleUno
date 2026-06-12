@@ -33,6 +33,52 @@ export function generateWeeklyReport(patient) {
     `<span class="tag">${t} <b>(${c})</b></span>`
   ).join(" ");
 
+  // Build SVG line chart for weekly anxiety trend
+  const buildChart = () => {
+    const sorted = [...weekly].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+    if (sorted.length < 2) return "";
+
+    const W = 700, H = 240, padL = 40, padR = 20, padT = 20, padB = 40;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+
+    const points = sorted.map((e, i) => {
+      const x = padL + (i / (sorted.length - 1)) * chartW;
+      const y = padT + (1 - e.anxiety / 100) * chartH;
+      return { x, y, e };
+    });
+
+    const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+    const yFor = v => padT + (1 - v/100) * chartH;
+
+    const dots = points.map(p => {
+      const color = p.e.anxiety >= 70 ? "#ef4444" : p.e.anxiety >= 40 ? "#f59e0b" : "#22c55e";
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${color}" stroke="white" stroke-width="1.5"/>`;
+    }).join("");
+
+    const xLabels = points.map((p, i) => {
+      if (sorted.length > 8 && i % 2 !== 0 && i !== sorted.length - 1) return "";
+      const date = new Date(p.e.timestamp).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" });
+      return `<text x="${p.x.toFixed(1)}" y="${H - 12}" font-size="10" fill="#94a3b8" text-anchor="middle">${date}</text>`;
+    }).join("");
+
+    return `
+    <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:'Heebo',Arial,sans-serif">
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#e2e8f0" stroke-width="1"/>
+      <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="${padL-8}" y="${padT+4}" font-size="10" fill="#94a3b8" text-anchor="end">100</text>
+      <text x="${padL-8}" y="${(padT+H-padB)/2+4}" font-size="10" fill="#94a3b8" text-anchor="end">50</text>
+      <text x="${padL-8}" y="${H-padB+4}" font-size="10" fill="#94a3b8" text-anchor="end">0</text>
+      <line x1="${padL}" y1="${yFor(70)}" x2="${W-padR}" y2="${yFor(70)}" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+      <line x1="${padL}" y1="${yFor(40)}" x2="${W-padR}" y2="${yFor(40)}" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+      <path d="${linePath}" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      ${xLabels}
+    </svg>`;
+  };
+
+  const chartSvg = buildChart();
+
   const html = `<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -137,6 +183,14 @@ export function generateWeeklyReport(patient) {
   tr:last-child td { border-bottom: none; }
   tbody tr:hover { background: #f8fafc; }
 
+  /* CHART */
+  .card-chart {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    background: white;
+  }
+
   /* RISK BADGE */
   .risk-badge {
     display: inline-block;
@@ -206,6 +260,12 @@ export function generateWeeklyReport(patient) {
       <div class="lbl">אחוז התמודדות</div>
     </div>
   </div>
+
+  ${chartSvg ? `
+  <div class="section">
+    <h2>📈 מגמת חרדה - 7 ימים אחרונים</h2>
+    <div class="card-chart">${chartSvg}</div>
+  </div>` : ""}
 
   <div class="section">
     <h2>🧠 אינסייטים קליניים</h2>
